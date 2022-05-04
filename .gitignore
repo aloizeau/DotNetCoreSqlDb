@@ -348,3 +348,4 @@ MigrationBackup/
 
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
+/DotNetCoreSqlDb/Properties/ServiceDependencies/pocprivatelink-sbx-ew101 - Zip Deploy
