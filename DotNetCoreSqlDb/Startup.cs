@@ -1,4 +1,5 @@
-﻿using DotNetCoreSqlDb.Models;
+﻿using Azure.Identity;
+using DotNetCoreSqlDb.Models;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
@@ -20,8 +21,11 @@ namespace DotNetCoreSqlDb
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllersWithViews();
-            services.AddDbContext<MyDatabaseContext>(options =>
-                    options.UseSqlServer(Configuration.GetConnectionString("MyDbConnection")));
+            ConfigurationBuilder builder = new();
+            builder.AddAzureKeyVault(new System.Uri(Configuration["KEY_VAULT_URI"]), new DefaultAzureCredential());
+
+            IConfiguration config = builder.Build();
+            services.AddDbContext<MyDatabaseContext>(options => options.UseSqlServer(config["SQL-CONNECTION-STRING"]));
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

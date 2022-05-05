@@ -1,4 +1,7 @@
-﻿using Azure.Storage.Blobs;
+﻿using Azure;
+using Azure.Identity;
+using Azure.Security.KeyVault.Secrets;
+using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
@@ -12,18 +15,16 @@ namespace DotNetCoreSqlDb.Controllers
     {
         const string blobContainerName = "images";
         static BlobContainerClient blobContainer;
-        private readonly IConfiguration _config;
-
-        public ImagesController(IConfiguration config)
+        public IConfiguration Configuration { get; }
+        public ImagesController(IConfiguration configuration)
         {
-            _config = config;
+            Configuration = configuration;
         }
         public async Task<ActionResult> Index()
         {
             try
-            {
-
-                BlobServiceClient blobServiceClient = new(_config.GetValue<string>("StorageAccount"));
+            {                
+                BlobServiceClient blobServiceClient = new(Configuration["STORAGE-CONNECTION-STRING"]);
 
                 blobContainer = blobServiceClient.GetBlobContainerClient(blobContainerName);
                 await blobContainer.CreateIfNotExistsAsync(PublicAccessType.Blob);
