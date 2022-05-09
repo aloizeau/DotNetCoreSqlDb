@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Hosting;
+﻿using Azure.Identity;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -11,18 +13,26 @@ namespace DotNetCoreSqlDb
             CreateHostBuilder(args).Build().Run();
         }
 
+
         public static IHostBuilder CreateHostBuilder(string[] args) =>
             Host.CreateDefaultBuilder(args)
-                .ConfigureWebHostDefaults(webBuilder =>
+            .ConfigureAppConfiguration((context, config) =>
+            {
+                var builtConfig = config.Build();
+
+                config.AddAzureKeyVault(
+                    new System.Uri(builtConfig["KEY_VAULT_URI"]),
+                    new DefaultAzureCredential());
+            }).ConfigureWebHostDefaults(webBuilder =>
+            {
+                webBuilder.UseStartup<Startup>();
+                webBuilder.ConfigureLogging((ctx, logging) =>
                 {
-                    webBuilder.UseStartup<Startup>();
-                    webBuilder.ConfigureLogging((ctx, logging) =>
+                    logging.AddEventLog(options =>
                     {
-                        logging.AddEventLog(options =>
-                        {
-                            options.SourceName = "MySampleApp";
-                        });
+                        options.SourceName = "MySampleApp";
                     });
                 });
+            });
     }
 }
