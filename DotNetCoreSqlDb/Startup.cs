@@ -4,11 +4,27 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using System;
+using System.Threading.Tasks;
+using TodoItem;
 
 namespace DotNetCoreSqlDb
 {
     public class Startup
     {
+        /// <summary>
+        /// Creates a Cosmos DB database and a container with the specified partition key. 
+        /// </summary>
+        /// <returns></returns>
+        private static async Task<CosmosDbService> InitializeCosmosClientInstanceAsync(string cosmosDBConnectionString, string cosmosDBSQLName, string cosmosDBContainerName)
+        {
+            Microsoft.Azure.Cosmos.CosmosClient client = new Microsoft.Azure.Cosmos.CosmosClient(cosmosDBConnectionString);
+            CosmosDbService cosmosDbService = new CosmosDbService(client, cosmosDBSQLName, cosmosDBContainerName);
+            Microsoft.Azure.Cosmos.DatabaseResponse database = await client.CreateDatabaseIfNotExistsAsync(cosmosDBContainerName);
+            await database.Database.CreateContainerIfNotExistsAsync(cosmosDBContainerName, "/id");
+            return cosmosDbService;
+        }
+
         public Startup(IConfiguration configuration)
         {
             Configuration = configuration;
@@ -22,7 +38,12 @@ namespace DotNetCoreSqlDb
             services.AddControllersWithViews();
             // The following line enables Application Insights telemetry collection.
             services.AddApplicationInsightsTelemetry();
-            services.AddDbContext<MyDatabaseContext>(options => options.UseSqlServer(Configuration["SQL-CONNECTION-STRING"]));
+            services.AddDbContext<MyDatabaseContext>(options => options.UseSqlServer(Configuration["SQL-CONNECTION-STRING"],
+                sqlServerOptionsAction: sqlOptions =>
+                {
+                    sqlOptions.EnableRetryOnFailure(10, TimeSpan.FromSeconds(30), null);
+                }));
+            services.AddSingleton<ICosmosDbService>(InitializeCosmosClientInstanceAsync(Configuration["COSMOSDB-CONNECTION-STRING"], Configuration["COSMOSDB-SQL-NAME"], Configuration["COSMOSDB-CONTAINER-NAME"]).Result);
         }
 
 
@@ -30,30 +51,6 @@ namespace DotNetCoreSqlDb
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
             app.UseDeveloperExceptionPage();
-            //app.UseEndpoints(endpoints =>
-            //{
-            //    endpoints.MapGet("api/keyvault", async context =>
-            //    {
-            //        await context.Response.WriteAsync(Configuration["KEY_VAULT_URI"]);
-            //    });
-            //    endpoints.MapGet("api/sql", async context =>
-            //    {
-            //        ConfigurationBuilder builder = new();
-            //        builder.AddAzureKeyVault(new System.Uri(Configuration["KEY_VAULT_URI"]), new DefaultAzureCredential());
-
-            //        IConfiguration config = builder.Build();
-            //        await context.Response.WriteAsync(config["SQL-CONNECTION-STRING"]);
-            //    });
-            //    endpoints.MapGet("api/storage", async context =>
-            //    {
-            //        ConfigurationBuilder builder = new();
-            //        builder.AddAzureKeyVault(new System.Uri(Configuration["KEY_VAULT_URI"]), new DefaultAzureCredential());
-
-            //        IConfiguration config = builder.Build();
-            //        await context.Response.WriteAsync(config["STORAGE-CONNECTION-STRING"]);
-            //    });
-            //    endpoints.MapControllers();
-            //});
 
 
             using (var serviceScope = app.ApplicationServices.GetService<IServiceScopeFactory>().CreateScope())
@@ -61,17 +58,6 @@ namespace DotNetCoreSqlDb
                 var context = serviceScope.ServiceProvider.GetRequiredService<MyDatabaseContext>();
                 context.Database.Migrate();
             }
-
-            //if (env.IsDevelopment())
-            //{
-            //    app.UseDeveloperExceptionPage();
-            //}
-            //else
-            //{
-            //    app.UseExceptionHandler("/Home/Error");
-            //    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
-            //    //app.UseHsts();
-            //}
 
             app.UseHttpsRedirection();
             app.UseStaticFiles();
@@ -85,6 +71,9 @@ namespace DotNetCoreSqlDb
                 endpoints.MapControllerRoute(
                     name: "default",
                     pattern: "{controller=Todos}/{action=Index}/{id?}");
+                endpoints.MapControllerRoute(
+                    name: "Item",
+                    pattern: "{controller=Item}/{action=Index}/{id?}");
             });
         }
     }

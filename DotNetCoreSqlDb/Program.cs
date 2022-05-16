@@ -20,9 +20,7 @@ namespace DotNetCoreSqlDb
             {
                 var builtConfig = config.Build();
 
-                config.AddAzureKeyVault(
-                    new System.Uri(builtConfig["KEY_VAULT_URI"]),
-                    new DefaultAzureCredential());
+                config.AddAzureKeyVault(new System.Uri(builtConfig["KEY_VAULT_URI"]), new DefaultAzureCredential());
             }).ConfigureWebHostDefaults(webBuilder =>
             {
                 webBuilder.UseStartup<Startup>();
